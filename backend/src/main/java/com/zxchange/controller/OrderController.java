@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -30,7 +29,7 @@ public class OrderController {
                     request.symbol(), request.side(), request.type(), request.qty());
             OrderResponseDto order = orderService.placeOrder(request);
             return ResponseEntity.ok(order);
-        } catch (IOException e) {
+        } catch (Exception e) {
             logger.error("Failed to place order: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -41,7 +40,7 @@ public class OrderController {
         try {
             List<OrderResponseDto> orders = orderService.getOpenOrders();
             return ResponseEntity.ok(orders);
-        } catch (IOException e) {
+        } catch (Exception e) {
             logger.error("Failed to get orders: {}", e.getMessage());
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
@@ -52,7 +51,7 @@ public class OrderController {
         try {
             orderService.cancelOrder(orderId);
             return ResponseEntity.ok().build();
-        } catch (IOException e) {
+        } catch (Exception e) {
             logger.error("Failed to cancel order {}: {}", orderId, e.getMessage());
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

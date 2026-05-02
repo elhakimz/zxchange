@@ -21,7 +21,7 @@ export const Panel: React.FC<PanelProps> = ({
         </h2>
         {actions && <div className="flex items-center gap-2">{actions}</div>}
       </div>
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 flex flex-col overflow-auto">
         {children}
       </div>
     </div>

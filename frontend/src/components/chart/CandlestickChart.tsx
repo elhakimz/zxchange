@@ -36,6 +36,8 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ symbol, time
     if (!chartContainerRef.current) return;
 
     const chart = createChart(chartContainerRef.current, {
+      width: chartContainerRef.current.clientWidth,
+      height: chartContainerRef.current.clientHeight || 400,
       layout: {
         background: { type: ColorType.Solid, color: '#0a0e1a' },
         textColor: '#c0c8d8',
@@ -71,14 +73,16 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ symbol, time
     chartRef.current = chart;
     seriesRef.current = series;
 
-    const handleResize = () => {
-      chart.applyOptions({ width: chartContainerRef.current?.clientWidth });
-    };
+    const resizeObserver = new ResizeObserver(entries => {
+      if (entries.length === 0 || !chartContainerRef.current) return;
+      const { width, height } = entries[0].contentRect;
+      chart.applyOptions({ width, height });
+    });
 
-    window.addEventListener('resize', handleResize);
+    resizeObserver.observe(chartContainerRef.current);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       chart.remove();
     };
   }, []);

@@ -3,7 +3,7 @@ package com.zxchange.config;
 import com.zxchange.model.entity.WatchlistEntity;
 import com.zxchange.model.entity.WatchlistSymbolEntity;
 import com.zxchange.repository.WatchlistRepository;
-import com.zxchange.websocket.AlpacaMarketDataWsClient;
+import com.zxchange.websocket.FinnhubMarketDataWsClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -22,11 +22,11 @@ public class WatchlistSeeder implements ApplicationRunner {
     private static final List<String> DEFAULT_SYMBOLS = List.of("AAPL", "MSFT", "GOOGL", "AMZN", "TSLA");
 
     private final WatchlistRepository watchlistRepository;
-    private final AlpacaMarketDataWsClient alpacaWsClient;
+    private final FinnhubMarketDataWsClient finnhubWsClient;
 
-    public WatchlistSeeder(WatchlistRepository watchlistRepository, AlpacaMarketDataWsClient alpacaWsClient) {
+    public WatchlistSeeder(WatchlistRepository watchlistRepository, FinnhubMarketDataWsClient finnhubWsClient) {
         this.watchlistRepository = watchlistRepository;
-        this.alpacaWsClient = alpacaWsClient;
+        this.finnhubWsClient = finnhubWsClient;
     }
 
     @Override
@@ -50,7 +50,7 @@ public class WatchlistSeeder implements ApplicationRunner {
         }
 
         watchlistRepository.save(watchlist);
-        alpacaWsClient.resubscribe(DEFAULT_SYMBOLS);
+        finnhubWsClient.resubscribe(DEFAULT_SYMBOLS);
         logger.info("Default watchlist seeded with {} symbols", DEFAULT_SYMBOLS.size());
     }
 }

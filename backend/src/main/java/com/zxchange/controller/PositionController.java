@@ -7,7 +7,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -27,7 +26,7 @@ public class PositionController {
         try {
             List<PositionDto> positions = positionService.getPositions();
             return ResponseEntity.ok(positions);
-        } catch (IOException e) {
+        } catch (Exception e) {
             logger.error("Failed to get positions: {}", e.getMessage());
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
@@ -38,7 +37,7 @@ public class PositionController {
         try {
             positionService.closePosition(symbol);
             return ResponseEntity.ok().build();
-        } catch (IOException e) {
+        } catch (Exception e) {
             logger.error("Failed to close position {}: {}", symbol, e.getMessage());
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

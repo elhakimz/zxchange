@@ -5,7 +5,7 @@ import com.zxchange.model.dto.WatchlistSymbolDto;
 import com.zxchange.model.entity.WatchlistEntity;
 import com.zxchange.model.entity.WatchlistSymbolEntity;
 import com.zxchange.repository.WatchlistRepository;
-import com.zxchange.websocket.AlpacaMarketDataWsClient;
+import com.zxchange.websocket.FinnhubMarketDataWsClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,11 +16,11 @@ import java.util.stream.Collectors;
 public class WatchlistService {
 
     private final WatchlistRepository watchlistRepository;
-    private final AlpacaMarketDataWsClient alpacaWsClient;
+    private final FinnhubMarketDataWsClient finnhubWsClient;
 
-    public WatchlistService(WatchlistRepository watchlistRepository, AlpacaMarketDataWsClient alpacaWsClient) {
+    public WatchlistService(WatchlistRepository watchlistRepository, FinnhubMarketDataWsClient finnhubWsClient) {
         this.watchlistRepository = watchlistRepository;
-        this.alpacaWsClient = alpacaWsClient;
+        this.finnhubWsClient = finnhubWsClient;
     }
 
     @Transactional(readOnly = true)
@@ -53,8 +53,8 @@ public class WatchlistService {
             watchlist.getSymbols().add(symbolEntity);
             watchlistRepository.save(watchlist);
             
-            // Trigger Alpaca WS subscription
-            alpacaWsClient.subscribe(symbol.toUpperCase());
+            // Trigger Finnhub WS subscription
+            finnhubWsClient.subscribe(symbol.toUpperCase());
         }
 
         return mapToDto(watchlist);

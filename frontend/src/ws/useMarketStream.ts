@@ -25,7 +25,6 @@ export const useMarketStream = (symbol: string, timeframe: Timeframe) => {
     });
 
     const barSub = stompClient.subscribe(`/topic/bars/${symbol}/${timeframe}`, (message) => {
-      console.log(`[STOMP] Bar received for ${symbol}/${timeframe}:`, message.body);
       const b: any = JSON.parse(message.body);
       
       const bar: Bar = {

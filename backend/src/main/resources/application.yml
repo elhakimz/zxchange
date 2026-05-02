@@ -1,3 +1,7 @@
+logging:
+  level:
+    com.zxchange: DEBUG
+
 server:
   port: 8080
 
@@ -12,8 +16,7 @@ spring:
     show-sql: true
 
 zxchange:
-  alpaca:
-    base-url: https://api.alpaca.markets
-    paper-base-url: https://paper-api.alpaca.markets
-    data-ws-url: wss://stream.data.alpaca.markets/v2/iex
-    trading-ws-url: wss://paper-api.alpaca.markets/stream
+  finnhub:
+    base-url: https://finnhub.io/api/v1
+    ws-url: wss://ws.finnhub.io
+

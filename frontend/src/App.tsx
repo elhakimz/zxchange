@@ -13,7 +13,7 @@ import { Button } from './components/ui/Button';
 import { Input } from './components/ui/Input';
 import { WatchlistPanel } from './components/watchlist/WatchlistPanel';
 import { CandlestickChart } from './components/chart/CandlestickChart';
-import { Maximize2, X, Loader2 } from 'lucide-react';
+import { Maximize2, Minimize2, X, Loader2 } from 'lucide-react';
 
 const queryClient = new QueryClient();
 
@@ -21,6 +21,8 @@ function AppContent() {
   const selectedSymbol = useMarketStore((state) => state.selectedSymbol);
   const selectedTimeframe = useMarketStore((state) => state.selectedTimeframe);
   const quote = useMarketStore((state) => state.quotes[selectedSymbol]);
+
+  const [isChartMaximized, setIsChartMaximized] = useState(false);
 
   useMarketStream(selectedSymbol, selectedTimeframe);
   useChartUpdateScheduler(selectedSymbol, selectedTimeframe);
@@ -100,7 +102,12 @@ function AppContent() {
         </button>
       ))}
       <div className="w-px h-3 bg-bg-border mx-1"></div>
-      <button className="text-text-muted hover:text-text-primary p-0.5"><Maximize2 size={12} /></button>
+      <button 
+        onClick={() => setIsChartMaximized(!isChartMaximized)}
+        className="text-text-muted hover:text-text-primary p-0.5"
+      >
+        {isChartMaximized ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+      </button>
     </div>
   );
 
@@ -108,11 +115,17 @@ function AppContent() {
     <AppShell>
       <div className="p-3 h-full flex flex-col gap-3 overflow-hidden">
         <div className="grid grid-cols-12 gap-3 h-full overflow-hidden">
-          <div className="col-span-2 h-full overflow-hidden">
-            <WatchlistPanel />
-          </div>
+          {!isChartMaximized && (
+            <div className="col-span-2 h-full overflow-hidden">
+              <WatchlistPanel />
+            </div>
+          )}
 
-          <Panel title={`${selectedSymbol} — ${selectedTimeframe} — NASDAQ`} className="col-span-7" actions={chartActions}>
+          <Panel 
+            title={`${selectedSymbol} — ${selectedTimeframe} — NASDAQ`} 
+            className={isChartMaximized ? 'col-span-12' : 'col-span-7'} 
+            actions={chartActions}
+          >
             {isBarsLoading ? (
               <div className="flex-1 h-full flex items-center justify-center text-text-muted italic bg-bg-void/50">
                 <Loader2 className="w-8 h-8 animate-spin" />
@@ -129,8 +142,9 @@ function AppContent() {
             )}
           </Panel>
 
-          <div className="col-span-3 flex flex-col gap-3 overflow-hidden">
-            <Panel title="Order Ticket">
+          {!isChartMaximized && (
+            <div className="col-span-3 flex flex-col gap-3 overflow-hidden">
+              <Panel title="Order Ticket">
               <div className="p-4 space-y-4">
                 <div className="flex gap-2">
                   <Button variant={side === 'buy' ? 'bull' : 'secondary'} size="sm" fullWidth onClick={() => setSide('buy')}>BUY</Button>
@@ -214,6 +228,7 @@ function AppContent() {
               )}
             </Panel>
           </div>
+        )}
         </div>
       </div>
     </AppShell>

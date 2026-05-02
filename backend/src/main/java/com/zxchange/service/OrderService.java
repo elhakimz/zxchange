@@ -1,164 +1,166 @@
 package com.zxchange.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zxchange.model.dto.OrderRequestDto;
 import com.zxchange.model.dto.OrderResponseDto;
-import com.zxchange.repository.SettingsRepository;
-import okhttp3.*;
+import com.zxchange.model.dto.QuoteDto;
+import com.zxchange.model.entity.MockAccountEntity;
+import com.zxchange.model.entity.MockPositionEntity;
+import com.zxchange.model.entity.OrderHistoryEntity;
+import com.zxchange.repository.MockAccountRepository;
+import com.zxchange.repository.MockPositionRepository;
+import com.zxchange.repository.OrderHistoryRepository;
+import com.zxchange.websocket.StompBroadcaster;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class OrderService {
 
     private static final Logger logger = LoggerFactory.getLogger(OrderService.class);
-    private final OkHttpClient httpClient = new OkHttpClient();
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private final SettingsRepository settingsRepository;
-    private final EncryptionService encryptionService;
+    private final OrderHistoryRepository orderRepository;
+    private final MockAccountRepository accountRepository;
+    private final MockPositionRepository positionRepository;
+    private final FinnhubService finnhubService;
+    private final StompBroadcaster stompBroadcaster;
 
-    @Value("${zxchange.alpaca.base-url}")
-    private String baseUrl;
-
-    @Value("${zxchange.alpaca.paper-base-url}")
-    private String paperBaseUrl;
-
-    @Value("${ALPACA_API_KEY:}")
-    private String envApiKey;
-
-    @Value("${ALPACA_API_SECRET:}")
-    private String envApiSecret;
-
-    public OrderService(SettingsRepository settingsRepository, EncryptionService encryptionService) {
-        this.settingsRepository = settingsRepository;
-        this.encryptionService = encryptionService;
+    public OrderService(OrderHistoryRepository orderRepository,
+                        MockAccountRepository accountRepository,
+                        MockPositionRepository positionRepository,
+                        FinnhubService finnhubService,
+                        StompBroadcaster stompBroadcaster) {
+        this.orderRepository = orderRepository;
+        this.accountRepository = accountRepository;
+        this.positionRepository = positionRepository;
+        this.finnhubService = finnhubService;
+        this.stompBroadcaster = stompBroadcaster;
     }
 
-    private String getApiKey() {
-        return (envApiKey != null && !envApiKey.isEmpty()) ? envApiKey : getSetting("ALPACA_API_KEY");
-    }
-
-    private String getApiSecret() {
-        return (envApiSecret != null && !envApiSecret.isEmpty()) ? envApiSecret : getSetting("ALPACA_API_SECRET");
-    }
-
-    private String getBaseUrl() {
-        String endpoint = getSetting("ALPACA_ENDPOINT");
-        if (endpoint != null && !endpoint.isEmpty()) {
-            return endpoint.replace("/v2", "");
-        }
-        boolean isPaper = "true".equalsIgnoreCase(getSetting("ALPACA_IS_PAPER"));
-        return isPaper ? paperBaseUrl : baseUrl;
-    }
-
-    private String getSetting(String key) {
-        return settingsRepository.findByKey(key)
-                .map(s -> s.isEncrypted() ? encryptionService.decrypt(s.getValue()) : s.getValue())
-                .orElse("");
-    }
-
+    @Transactional
     public OrderResponseDto placeOrder(OrderRequestDto request) throws IOException {
-        String apiKey = getApiKey();
-        String apiSecret = getApiSecret();
+        logger.info("Placing mock order: {} {}", request.side(), request.symbol());
+
+        OrderHistoryEntity entity = new OrderHistoryEntity();
+        entity.setBrokerOrderId("mock-" + UUID.randomUUID().toString());
+        entity.setClientOrderId(request.clientOrderId());
+        entity.setSymbol(request.symbol().toUpperCase());
+        entity.setSide(request.side());
+        entity.setType(request.type());
+        entity.setTimeInForce(request.timeInForce() != null ? request.timeInForce() : "day");
+        entity.setQty(request.qty());
+        entity.setLimitPrice(request.limitPrice());
+        entity.setStopPrice(request.stopPrice());
+        entity.setStatus("accepted");
+        entity.setSubmittedAt(java.time.LocalDateTime.now());
         
-        if (apiKey.isEmpty() || apiSecret.isEmpty()) {
-            throw new IOException("Missing API keys");
+        entity = orderRepository.save(entity);
+
+        if ("market".equalsIgnoreCase(request.type())) {
+            executeMockOrder(entity);
+        }
+
+        return mapToDto(entity);
+    }
+
+    private void executeMockOrder(OrderHistoryEntity order) throws IOException {
+        QuoteDto quote = finnhubService.getQuote(order.getSymbol());
+        double fillPrice = quote.bidPrice(); 
+        
+        MockAccountEntity account = accountRepository.findById("PRIMARY")
+                .orElseGet(() -> accountRepository.save(new MockAccountEntity()));
+
+        double cost = fillPrice * order.getQty();
+        if ("buy".equalsIgnoreCase(order.getSide())) {
+            if (account.getCash() < cost) {
+                order.setStatus("rejected");
+                orderRepository.save(order);
+                logger.warn("Order rejected: insufficient cash");
+                return;
+            }
+            account.setCash(account.getCash() - cost);
+            updatePosition(order.getSymbol(), order.getQty(), fillPrice);
+        } else {
+            account.setCash(account.getCash() + cost);
+            updatePosition(order.getSymbol(), -order.getQty(), fillPrice);
+        }
+
+        accountRepository.save(account);
+        
+        order.setStatus("filled");
+        order.setFilledQty(order.getQty());
+        order.setFilledAvgPrice(fillPrice);
+        order.setFilledAt(java.time.LocalDateTime.now());
+        orderRepository.save(order);
+
+        stompBroadcaster.broadcastOrderUpdate(mapToDto(order));
+        logger.info("Mock order filled: {} @ {}", order.getSymbol(), fillPrice);
+    }
+
+    private void updatePosition(String symbol, Double qtyDelta, Double price) {
+        MockPositionEntity pos = positionRepository.findBySymbol(symbol)
+                .orElse(new MockPositionEntity());
+        
+        if (pos.getSymbol() == null) {
+            pos.setSymbol(symbol);
+            pos.setQty(0.0);
+            pos.setAvgEntryPrice(0.0);
+        }
+
+        double oldQty = pos.getQty();
+        double newQty = oldQty + qtyDelta;
+
+        if (newQty <= 0) {
+            positionRepository.delete(pos);
+            return;
+        }
+
+        if (qtyDelta > 0) {
+            double totalCost = (oldQty * pos.getAvgEntryPrice()) + (qtyDelta * price);
+            pos.setAvgEntryPrice(totalCost / newQty);
         }
         
-        String url = getBaseUrl() + "/v2/orders";
-
-        String requestBody = buildOrderJson(request);
-        logger.info("Placing order: {} to {} with key={}", requestBody, url, apiKey);
-
-        RequestBody body = RequestBody.create(requestBody, MediaType.parse("application/json"));
-        Request httpRequest = new Request.Builder()
-                .url(url)
-                .addHeader("APCA-API-KEY-ID", getApiKey())
-                .addHeader("APCA-API-SECRET-KEY", getApiSecret())
-                .post(body)
-                .build();
-
-        try (Response response = httpClient.newCall(httpRequest).execute()) {
-            if (!response.isSuccessful()) {
-                String errorBody = response.body() != null ? response.body().string() : "No error body";
-                logger.error("Order placement failed: {} - {}", response.code(), errorBody);
-                throw new IOException("Order failed: " + response.code() + " - " + errorBody);
-            }
-            String responseBody = response.body().string();
-            logger.info("Order placed successfully: {}", responseBody);
-            return objectMapper.readValue(responseBody, OrderResponseDto.class);
-        }
+        pos.setQty(newQty);
+        positionRepository.save(pos);
     }
 
-    public List<OrderResponseDto> getOpenOrders() throws IOException {
-        String url = getBaseUrl() + "/v2/orders?status=open";
-
-        Request request = new Request.Builder()
-                .url(url)
-                .addHeader("APCA-API-KEY-ID", getApiKey())
-                .addHeader("APCA-API-SECRET-KEY", getApiSecret())
-                .get()
-                .build();
-
-        try (Response response = httpClient.newCall(request).execute()) {
-            if (!response.isSuccessful()) {
-                logger.error("Failed to get orders: {}", response.code());
-                return new ArrayList<>();
-            }
-            String responseBody = response.body().string();
-            List<OrderResponseDto> orders = objectMapper.readValue(responseBody,
-                    objectMapper.getTypeFactory().constructCollectionType(List.class, OrderResponseDto.class));
-            return orders;
-        }
+    public List<OrderResponseDto> getOpenOrders() {
+        return orderRepository.findByStatus("accepted").stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
     }
 
-    public void cancelOrder(String orderId) throws IOException {
-        String url = getBaseUrl() + "/v2/orders/" + orderId;
-
-        Request request = new Request.Builder()
-                .url(url)
-                .addHeader("APCA-API-KEY-ID", getApiKey())
-                .addHeader("APCA-API-SECRET-KEY", getApiSecret())
-                .delete()
-                .build();
-
-        try (Response response = httpClient.newCall(request).execute()) {
-            if (response.code() != 204 && response.code() != 500) {
-                if (!response.isSuccessful()) {
-                    String errorBody = response.body() != null ? response.body().string() : "No error body";
-                    logger.error("Cancel order failed: {} - {}", response.code(), errorBody);
-                    throw new IOException("Cancel failed: " + errorBody);
-                }
-            }
-            logger.info("Order {} cancelled", orderId);
-        }
+    public void cancelOrder(String orderId) {
+        orderRepository.findAll().stream()
+                .filter(o -> o.getBrokerOrderId().equals(orderId))
+                .findFirst()
+                .ifPresent(o -> {
+                    o.setStatus("canceled");
+                    o.setCanceledAt(java.time.LocalDateTime.now());
+                    orderRepository.save(o);
+                });
     }
 
-    private String buildOrderJson(OrderRequestDto req) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{");
-        sb.append("\"symbol\":\"").append(req.symbol()).append("\",");
-        sb.append("\"qty\":").append(req.qty() != null ? req.qty() : "null").append(",");
-        sb.append("\"side\":\"").append(req.side()).append("\",");
-        sb.append("\"type\":\"").append(req.type()).append("\",");
-        sb.append("\"time_in_force\":\"").append(req.timeInForce() != null ? req.timeInForce() : "day").append("\"");
-
-        if (req.limitPrice() != null) {
-            sb.append(",\"limit_price\":").append(req.limitPrice());
-        }
-        if (req.stopPrice() != null) {
-            sb.append(",\"stop_price\":").append(req.stopPrice());
-        }
-        if (req.clientOrderId() != null && !req.clientOrderId().isEmpty()) {
-            sb.append(",\"client_order_id\":\"").append(req.clientOrderId()).append("\"");
-        }
-        sb.append("}");
-        return sb.toString();
+    private OrderResponseDto mapToDto(OrderHistoryEntity entity) {
+        OrderResponseDto dto = new OrderResponseDto();
+        dto.setId(entity.getBrokerOrderId());
+        dto.setClientOrderId(entity.getClientOrderId());
+        dto.setSymbol(entity.getSymbol());
+        dto.setSide(entity.getSide());
+        dto.setType(entity.getType());
+        dto.setTimeInForce(entity.getTimeInForce());
+        dto.setStatus(entity.getStatus());
+        dto.setSubmittedAt(entity.getSubmittedAt() != null ? entity.getSubmittedAt().toString() : null);
+        dto.setFilledAt(entity.getFilledAt() != null ? entity.getFilledAt().toString() : null);
+        dto.setFilledQty(entity.getFilledQty() != null ? entity.getFilledQty().intValue() : 0);
+        dto.setFilledAvgPrice(entity.getFilledAvgPrice() != null ? entity.getFilledAvgPrice() : 0.0);
+        dto.setLimitPrice(entity.getLimitPrice() != null ? entity.getLimitPrice() : 0.0);
+        dto.setStopPrice(entity.getStopPrice() != null ? entity.getStopPrice() : 0.0);
+        return dto;
     }
 }

@@ -31,7 +31,7 @@ test('stability stress test: switch symbols every 30s for 2 minutes', async ({ p
     await page.waitForTimeout(1000);
 
     // Click the symbol in the watchlist to select it
-    const watchlistRow = page.locator('div.group').filter({ hasText: new RegExp(`^${symbol}$`) }).first();
+    const watchlistRow = page.locator('div.group').filter({ hasText: new RegExp(`^${symbol}`) }).first();
     await watchlistRow.click();
 
     // Verify the chart header updates

@@ -73,20 +73,22 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 This file provides architectural context and development guidelines for **ZXChange**, a professional-grade desktop trading platform.
 
 ## Project Overview
-ZXChange is a desktop application designed for algorithmic traders and sophisticated retail investors. It integrates with Alpaca Markets to provide real-time market data, portfolio analytics, and order execution.
+ZXChange is a desktop application designed for algorithmic traders and sophisticated retail investors. It integrates with real-time data providers to provide market data, portfolio analytics, and simulated execution.
 
 ### Tech Stack
 - **Backend:** Java 21, Spring Boot 3.3.x, Spring Data JPA, SQLite JDBC.
 - **Frontend:** React 18, Vite 5, TypeScript, Tailwind CSS, Zustand, TanStack Query.
+- **Data Source:** Finnhub.io (REST & WebSocket).
+- **Trading:** Local Mock Trading Engine.
 - **Communication:** HTTP REST for management; STOMP over WebSocket for real-time data streaming.
 - **Charting:** Lightweight Charts (TradingView).
 - **Database:** Local SQLite for persistence (watchlists, settings, trade history).
 
 ## Architecture
 The system follows a "Local Bridge" architecture:
-1.  **Spring Boot Backend (Port 8080):** Connects to Alpaca's REST and WebSocket APIs. It normalizes data, manages local persistence in SQLite, and broadcasts updates to the frontend via a local STOMP broker.
+1.  **Spring Boot Backend (Port 8080):** Connects to **Finnhub.io** for real-time and historical market data. It implements a **local Mock Trading Service** to simulate order execution and portfolio management using SQLite. It broadcasts updates to the frontend via a local STOMP broker.
 2.  **React Frontend (Port 5173):** A dense, data-rich UI inspired by Bloomberg Terminal and NASA Mission Control. It consumes the local backend's API.
-3.  **Security:** Alpaca API keys are stored encrypted on the backend and never exposed to the frontend. Access is restricted to `localhost`.
+3.  **Security:** External API keys are stored encrypted on the backend and never exposed to the frontend. Access is restricted to `localhost`.
 
 ## Building and Running
 
@@ -121,3 +123,4 @@ Detailed specifications are located in the `app_plan/` directory:
 - `ZXChange_PRD.md`: Feature requirements and product roadmap.
 - `ZXChange_TDD.md`: Technical architecture and API contracts.
 - `ZXChange_DESIGN.md`: Design system, color tokens, and layout specs.
+

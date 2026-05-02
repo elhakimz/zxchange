@@ -55,6 +55,7 @@ const formatExchangeTime = (exchange: Exchange): string => {
 
 export const StatusBar: React.FC = () => {
   const connected = useMarketStore((state) => state.connected);
+  const connectionError = useMarketStore((state) => state.connectionError);
   const selectedSymbol = useMarketStore((state) => state.selectedSymbol);
   const bars = useMarketStore((state) => state.bars[`${selectedSymbol}_1Min`] || EMPTY_BARS);
   const quote = useMarketStore((state) => state.quotes[selectedSymbol]);
@@ -76,11 +77,13 @@ export const StatusBar: React.FC = () => {
     <div className="h-7 bg-bg-void border-t border-bg-border flex items-center px-3 justify-between text-data-xs text-text-secondary">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-1.5">
-          <Wifi size={12} className={connected ? 'text-bull' : 'text-bear'} />
-          <span>{connected ? 'STOMP CONNECTED' : 'STOMP OFFLINE'}</span>
+          <Wifi size={12} className={connectionError ? 'text-bear' : connected ? 'text-bull' : 'text-bear'} />
+          <span className={connectionError ? 'text-bear font-bold' : ''}>
+            {connectionError ? `ERROR: ${connectionError}` : connected ? 'STOMP CONNECTED' : 'STOMP OFFLINE'}
+          </span>
         </div>
         <div className="h-3 w-px bg-bg-border mx-1"></div>
-        <div>DATA: IEX (FREE)</div>
+        <div>DATA: FINNHUB (FREE)</div>
       </div>
 
       <div className="flex items-center gap-4 overflow-hidden">

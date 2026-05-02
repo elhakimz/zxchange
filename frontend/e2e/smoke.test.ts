@@ -35,8 +35,9 @@ test('should load without console errors', async ({ page }) => {
 test('should display account data in TopBar', async ({ page }) => {
   await page.goto('/');
   
-  // Wait for account data to load (should not be 'Loading...' or '---')
-  const equityValue = page.locator('div:has-text("Equity") >> span').last();
-  await expect(equityValue).not.toContainText('Loading...');
-  await expect(equityValue).toContainText('$');
+  // Wait for account data to load
+  const equityValue = page.locator('div:has(> span:text-is("Equity")) >> span').last();
+  
+  await expect(equityValue).not.toContainText('Loading...', { timeout: 15000 });
+  await expect(equityValue).toContainText('$', { timeout: 15000 });
 });

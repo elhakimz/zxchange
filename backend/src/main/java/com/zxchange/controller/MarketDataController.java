@@ -1,8 +1,8 @@
 package com.zxchange.controller;
 
 import com.zxchange.model.dto.BarsResponseDto;
-import com.zxchange.service.AlpacaService;
-import com.zxchange.websocket.AlpacaMarketDataWsClient;
+import com.zxchange.service.FinnhubService;
+import com.zxchange.websocket.FinnhubMarketDataWsClient;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,11 +15,11 @@ import java.io.IOException;
 @RequestMapping("/api/marketdata")
 public class MarketDataController {
 
-    private final AlpacaService alpacaService;
-    private final AlpacaMarketDataWsClient wsClient;
+    private final FinnhubService finnhubService;
+    private final FinnhubMarketDataWsClient wsClient;
 
-    public MarketDataController(AlpacaService alpacaService, AlpacaMarketDataWsClient wsClient) {
-        this.alpacaService = alpacaService;
+    public MarketDataController(FinnhubService finnhubService, FinnhubMarketDataWsClient wsClient) {
+        this.finnhubService = finnhubService;
         this.wsClient = wsClient;
     }
 
@@ -33,7 +33,7 @@ public class MarketDataController {
             // Ensure we are subscribed to real-time data for this symbol
             wsClient.subscribe(symbol);
             
-            BarsResponseDto bars = alpacaService.getBars(symbol, timeframe, start, end);
+            BarsResponseDto bars = finnhubService.getBars(symbol, timeframe, start, end);
             return ResponseEntity.ok(bars);
         } catch (IOException e) {
             return ResponseEntity.internalServerError().body("Error fetching bars: " + e.getMessage());
