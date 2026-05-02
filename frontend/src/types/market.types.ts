@@ -9,6 +9,8 @@ export interface Quote {
   askPrice: number;
   askSize: number;
   timestamp: string;
+  change?: number;
+  changePercent?: number;
 }
 
 export interface Bar {

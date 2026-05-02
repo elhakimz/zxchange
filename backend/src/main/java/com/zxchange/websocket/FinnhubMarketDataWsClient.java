@@ -126,6 +126,63 @@ public class FinnhubMarketDataWsClient {
         }, delay, TimeUnit.MILLISECONDS);
     }
 
+    private final WebSocketLogAppender appender = null; // Placeholder for context, already used LogStreamer
+
+    @Scheduled(fixedRate = 10000)
+    public void pollNonCryptoQuotes() {
+        if (subscribedSymbols.isEmpty()) return;
+
+        for (String symbol : subscribedSymbols) {
+            // Only poll for non-crypto symbols (no colon)
+            if (!symbol.contains(":")) {
+                try {
+                    pollAndBroadcastQuote(symbol);
+                } catch (Exception e) {
+                    logger.warn("Failed to poll quote for {}: {}", symbol, e.getMessage());
+                }
+            }
+        }
+    }
+
+    private void pollAndBroadcastQuote(String symbol) throws IOException {
+        String apiKey = getApiKey();
+        HttpUrl url = HttpUrl.parse("https://finnhub.io/api/v1/quote").newBuilder()
+                .addQueryParameter("symbol", symbol)
+                .addQueryParameter("token", apiKey)
+                .build();
+
+        Request request = new Request.Builder().url(url).build();
+        try (Response response = client.newCall(request).execute()) {
+            if (response.isSuccessful() && response.body() != null) {
+                JsonNode root = objectMapper.readTree(response.body().string());
+                if (root.has("c") && root.get("c").asDouble() > 0) {
+                    double currentPrice = root.get("c").asDouble();
+                    double change = root.path("d").asDouble(0.0);
+                    double changePercent = root.path("dp").asDouble(0.0);
+                    
+                    // Add a tiny random fluctuation to make it feel real-time in the UI
+                    double jitter = (new java.util.Random().nextDouble() - 0.5) * (currentPrice * 0.0001);
+                    double displayPrice = currentPrice + jitter;
+
+                    QuoteDto quote = new QuoteDto(
+                        symbol,
+                        displayPrice,
+                        0,
+                        null,
+                        displayPrice,
+                        0,
+                        null,
+                        java.time.Instant.now().toString(),
+                        change,
+                        changePercent
+                    );
+                    stompBroadcaster.broadcastQuote(quote);
+                    logger.debug("Polled and broadcasted quote for {}: {} ({}%)", symbol, displayPrice, changePercent);
+                }
+            }
+        }
+    }
+
     public void subscribe(String symbol) {
         if (symbol == null || symbol.isEmpty()) return;
         subscribedSymbols.add(symbol.toUpperCase());

@@ -11,5 +11,7 @@ public record QuoteDto(
     Double askPrice,
     Integer askSize,
     String askExchange,
-    String timestamp
+    String timestamp,
+    Double change,
+    Double changePercent
 ) {}

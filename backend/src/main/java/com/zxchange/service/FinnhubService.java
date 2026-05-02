@@ -58,6 +58,9 @@ public class FinnhubService {
             if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
             com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(response.body().string());
             double currentPrice = root.get("c").asDouble();
+            double change = root.path("d").asDouble(0.0);
+            double changePercent = root.path("dp").asDouble(0.0);
+            
             return new QuoteDto(
                 symbol,
                 currentPrice,
@@ -66,7 +69,9 @@ public class FinnhubService {
                 currentPrice,
                 0,
                 null,
-                java.time.Instant.now().toString()
+                java.time.Instant.now().toString(),
+                change,
+                changePercent
             );
         }
     }

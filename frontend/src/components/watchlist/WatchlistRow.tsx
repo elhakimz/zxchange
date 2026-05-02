@@ -27,8 +27,8 @@ export const WatchlistRow: React.FC<WatchlistRowProps> = ({
     }).format(value);
   };
 
-  const change = quote ? quote.askPrice - quote.bidPrice : 0; // Placeholder for real change
-  const isUp = change >= 0;
+  const changePercent = quote?.changePercent ?? 0;
+  const isUp = changePercent >= 0;
 
   return (
     <div 
@@ -42,7 +42,9 @@ export const WatchlistRow: React.FC<WatchlistRowProps> = ({
     >
       <div className="flex flex-col">
         <span className={`font-bold ${isSelected ? 'text-brand' : 'text-text-primary'}`}>{symbol}</span>
-        <span className="text-[9px] text-text-muted uppercase tracking-tighter">IEX</span>
+        <span className="text-[9px] text-text-muted uppercase tracking-tighter">
+          {symbol.includes(':') ? 'BINANCE' : 'IEX'}
+        </span>
       </div>
 
       <div className="flex flex-col items-end mr-4">
@@ -52,7 +54,7 @@ export const WatchlistRow: React.FC<WatchlistRowProps> = ({
         <div className={`flex items-center gap-0.5 text-[9px] ${isUp ? 'text-bull' : 'text-bear'}`}>
           {isUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
           <span className="font-mono">
-            {isUp ? '+' : ''}0.00%
+            {isUp ? '+' : ''}{changePercent.toFixed(2)}%
           </span>
         </div>
       </div>
