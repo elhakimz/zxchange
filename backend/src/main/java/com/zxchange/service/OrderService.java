@@ -65,10 +65,10 @@ public class OrderService {
 
                 if ("market".equalsIgnoreCase(order.getType())) {
                     shouldFill = true;
-                } else if ("limit".equalsIgnoreCase(order.getType())) {
+                } else if ("limit".equalsIgnoreCase(order.getType()) && order.getLimitPrice() != null) {
                     if ("buy".equalsIgnoreCase(order.getSide()) && currentPrice <= order.getLimitPrice()) shouldFill = true;
                     if ("sell".equalsIgnoreCase(order.getSide()) && currentPrice >= order.getLimitPrice()) shouldFill = true;
-                } else if ("stop".equalsIgnoreCase(order.getType())) {
+                } else if ("stop".equalsIgnoreCase(order.getType()) && order.getStopPrice() != null) {
                     if ("buy".equalsIgnoreCase(order.getSide()) && currentPrice >= order.getStopPrice()) shouldFill = true;
                     if ("sell".equalsIgnoreCase(order.getSide()) && currentPrice <= order.getStopPrice()) shouldFill = true;
                 }

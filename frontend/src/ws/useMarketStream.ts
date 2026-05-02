@@ -7,6 +7,7 @@ export const useMarketStream = (symbol: string, timeframe: Timeframe) => {
   const updateQuote = useMarketStore((state) => state.updateQuote);
   const appendBar = useMarketStore((state) => state.appendBar);
   const updateAccount = useMarketStore((state) => state.updateAccount);
+  const addLog = useMarketStore((state) => state.addLog);
   const connected = useMarketStore((state) => state.connected);
 
   useEffect(() => {
@@ -17,7 +18,14 @@ export const useMarketStream = (symbol: string, timeframe: Timeframe) => {
       updateAccount(account);
     });
 
-    if (!symbol) return () => accountSub.unsubscribe();
+    const logSub = stompClient.subscribe('/topic/logs', (message) => {
+      addLog(message.body);
+    });
+
+    if (!symbol) return () => {
+      accountSub.unsubscribe();
+      logSub.unsubscribe();
+    };
 
     const quoteSub = stompClient.subscribe(`/topic/quotes/${symbol}`, (message) => {
       const quote: Quote = JSON.parse(message.body);
@@ -44,8 +52,9 @@ export const useMarketStream = (symbol: string, timeframe: Timeframe) => {
 
     return () => {
       accountSub.unsubscribe();
+      logSub.unsubscribe();
       quoteSub.unsubscribe();
       barSub.unsubscribe();
     };
-  }, [symbol, timeframe, updateQuote, appendBar, updateAccount, connected]);
+  }, [symbol, timeframe, updateQuote, appendBar, updateAccount, addLog, connected]);
 };

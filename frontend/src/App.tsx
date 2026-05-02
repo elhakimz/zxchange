@@ -13,6 +13,8 @@ import { Button } from './components/ui/Button';
 import { Input } from './components/ui/Input';
 import { WatchlistPanel } from './components/watchlist/WatchlistPanel';
 import { MarketChart } from './components/chart/MarketChart';
+import { LogViewer } from './components/layout/LogViewer';
+import { Resizer } from './components/shared/Resizer';
 import { Maximize2, Minimize2, X, Loader2, LineChart, BarChart3, AreaChart, CandlestickChart as CandleIcon, Activity } from 'lucide-react';
 
 const queryClient = new QueryClient();
@@ -24,6 +26,35 @@ function AppContent() {
   const quote = useMarketStore((state) => state.quotes[selectedSymbol]);
 
   const [isChartMaximized, setIsChartMaximized] = useState(false);
+  
+  // Sidebar state
+  const [sidebarWeights, setSidebarWeights] = useState([1.5, 1, 1]);
+  const [sidebarMaximized, setSidebarMaximized] = useState<number | null>(null);
+  const [sidebarMinimized, setSidebarMinimized] = useState([false, false, false]);
+
+  const handleSidebarResize = (index: number, delta: number) => {
+    setSidebarWeights(prev => {
+      const next = [...prev];
+      const weightDelta = delta / 300;
+      const newWeight1 = Math.max(0.2, prev[index] + weightDelta);
+      const totalCombined = prev[index] + prev[index+1];
+      next[index] = newWeight1;
+      next[index+1] = Math.max(0.2, totalCombined - newWeight1);
+      return next;
+    });
+  };
+
+  const toggleSidebarMinimize = (index: number) => {
+    setSidebarMinimized(prev => {
+      const next = [...prev];
+      next[index] = !next[index];
+      return next;
+    });
+  };
+
+  const toggleSidebarMaximize = (index: number) => {
+    setSidebarMaximized(prev => prev === index ? null : index);
+  };
   
   useMarketStream(selectedSymbol, selectedTimeframe);
   useChartUpdateScheduler(selectedSymbol, selectedTimeframe);
@@ -171,94 +202,139 @@ function AppContent() {
           </Panel>
 
           {!isChartMaximized && (
-            <div className="col-span-3 flex flex-col gap-3 overflow-hidden">
-              <Panel title="Order Ticket">
-                <div className="p-4 space-y-4">
-                  <div className="flex gap-2">
-                    <Button variant={side === 'buy' ? 'bull' : 'secondary'} size="sm" fullWidth onClick={() => setSide('buy')}>BUY</Button>
-                    <Button variant={side === 'sell' ? 'bear' : 'secondary'} size="sm" fullWidth onClick={() => setSide('sell')}>SELL</Button>
-                  </div>
-                  <div className="space-y-3">
-                    <Input label="Symbol" value={selectedSymbol} readOnly />
-                    <Input label="Quantity" type="number" value={qty} onChange={(e) => setQty(e.target.value)} />
-                    <div className="grid grid-cols-2 gap-2">
-                      <select value={orderType} onChange={(e) => setOrderType(e.target.value as any)}
-                        className="h-8 bg-bg-elevated border border-bg-border rounded px-2 text-xs text-text-primary">
-                        <option value="market">Market</option>
-                        <option value="limit">Limit</option>
-                        <option value="stop">Stop</option>
-                        <option value="stop_limit">Stop Limit</option>
-                      </select>
-                      {(orderType === 'limit' || orderType === 'stop_limit') && (
-                        <Input label="Price" type="number" value={limitPrice} step="0.01" onChange={(e) => setLimitPrice(e.target.value)} />
-                      )}
+            <div className="col-span-3 flex flex-col h-full overflow-hidden">
+              {/* Order Ticket */}
+              {(sidebarMaximized === null || sidebarMaximized === 0) && (
+                <Panel 
+                  title="Order Ticket" 
+                  isMinimized={sidebarMinimized[0]}
+                  isMaximized={sidebarMaximized === 0}
+                  onMinimize={() => toggleSidebarMinimize(0)}
+                  onMaximize={() => toggleSidebarMaximize(0)}
+                  onRestore={() => toggleSidebarMaximize(0)}
+                  className={sidebarMaximized === 0 ? "flex-1" : ""}
+                  style={sidebarMaximized === null && !sidebarMinimized[0] ? { flex: sidebarWeights[0] } : {}}
+                >
+                  <div className="p-4 space-y-4">
+                    <div className="flex gap-2">
+                      <Button variant={side === 'buy' ? 'bull' : 'secondary'} size="sm" fullWidth onClick={() => setSide('buy')}>BUY</Button>
+                      <Button variant={side === 'sell' ? 'bear' : 'secondary'} size="sm" fullWidth onClick={() => setSide('sell')}>SELL</Button>
                     </div>
-                  </div>
-                  <div className="pt-2 border-t border-bg-border">
-                    <div className="flex justify-between text-data-xs mb-1">
-                      <span className="text-text-muted">Est. Cost</span>
-                      <span className="text-text-primary font-mono">{formatCurrency(estCost)}</span>
-                    </div>
-                    <Button variant={side === 'buy' ? 'primary' : 'bear'} fullWidth className="mt-2"
-                      onClick={handlePlaceOrder} disabled={placeOrderMutation.isPending}>
-                      {placeOrderMutation.isPending ? 'Placing...' : `PLACE ${side.toUpperCase()} ORDER`}
-                    </Button>
-                  </div>
-                </div>
-              </Panel>
-
-              <Panel title="Open Orders" className="flex-1 overflow-auto">
-                {isOrdersLoading ? (
-                  <div className="p-3 text-text-muted"><Loader2 className="w-4 h-4 animate-spin" /></div>
-                ) : orders.length === 0 ? (
-                  <div className="p-3 text-data-xs text-text-muted italic">No open orders</div>
-                ) : (
-                  <div className="space-y-2 p-2">
-                    {orders.map((order) => (
-                      <div key={order.id} className="flex items-center justify-between bg-bg-surface p-2 rounded border border-bg-border">
-                        <div className="flex flex-col">
-                          <span className="text-xs font-bold">{order.symbol}</span>
-                          <span className="text-[10px] text-text-muted">{order.side} {order.type} {order.qty}</span>
-                        </div>
-                        <button onClick={() => handleCancelOrder(order.id)} className="text-bear hover:text-bear/80">
-                          <X size={14} />
-                        </button>
+                    <div className="space-y-3">
+                      <Input label="Symbol" value={selectedSymbol} readOnly />
+                      <Input label="Quantity" type="number" value={qty} onChange={(e) => setQty(e.target.value)} />
+                      <div className="grid grid-cols-2 gap-2">
+                        <select value={orderType} onChange={(e) => setOrderType(e.target.value as any)}
+                          className="h-8 bg-bg-elevated border border-bg-border rounded px-2 text-xs text-text-primary">
+                          <option value="market">Market</option>
+                          <option value="limit">Limit</option>
+                          <option value="stop">Stop</option>
+                          <option value="stop_limit">Stop Limit</option>
+                        </select>
+                        {(orderType === 'limit' || orderType === 'stop_limit') && (
+                          <Input label="Price" type="number" value={limitPrice} step="0.01" onChange={(e) => setLimitPrice(e.target.value)} />
+                        )}
                       </div>
-                    ))}
+                    </div>
+                    <div className="pt-2 border-t border-bg-border">
+                      <div className="flex justify-between text-data-xs mb-1">
+                        <span className="text-text-muted">Est. Cost</span>
+                        <span className="text-text-primary font-mono">{formatCurrency(estCost)}</span>
+                      </div>
+                      <Button variant={side === 'buy' ? 'primary' : 'bear'} fullWidth className="mt-2"
+                        onClick={handlePlaceOrder} disabled={placeOrderMutation.isPending}>
+                        {placeOrderMutation.isPending ? 'Placing...' : `PLACE ${side.toUpperCase()} ORDER`}
+                      </Button>
+                    </div>
                   </div>
-                )}
-              </Panel>
+                </Panel>
+              )}
 
-              <Panel title="Positions" className="flex-1 overflow-auto">
-                {isPositionsLoading ? (
-                  <div className="p-3 text-text-muted"><Loader2 className="w-4 h-4 animate-spin" /></div>
-                ) : positions.length === 0 ? (
-                  <div className="p-3 text-data-xs text-text-muted italic">No open positions</div>
-                ) : (
-                  <div className="space-y-2 p-2">
-                    {positions.map((pos) => (
-                      <div key={pos.symbol} className="flex items-center justify-between bg-bg-surface p-2 rounded border border-bg-border">
-                        <div className="flex flex-col">
-                          <span className="text-xs font-bold">{pos.symbol}</span>
-                          <span className="text-[10px] text-text-muted">{pos.qty} shares @ {pos.avg_entry_price}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-xs font-mono ${pos.unrealized_pl >= 0 ? 'text-bull' : 'text-bear'}`}>
-                            {pos.unrealized_pl >= 0 ? '+' : ''}{formatCurrency(pos.unrealized_pl)}
-                          </span>
-                          <button onClick={() => handleClosePosition(pos.symbol)} className="text-bear hover:text-bear/80">
+              {sidebarMaximized === null && !sidebarMinimized[0] && !sidebarMinimized[1] && (
+                <Resizer onResize={(delta) => handleSidebarResize(0, delta)} />
+              )}
+
+              {/* Open Orders */}
+              {(sidebarMaximized === null || sidebarMaximized === 1) && (
+                <Panel 
+                  title="Open Orders" 
+                  isMinimized={sidebarMinimized[1]}
+                  isMaximized={sidebarMaximized === 1}
+                  onMinimize={() => toggleSidebarMinimize(1)}
+                  onMaximize={() => toggleSidebarMaximize(1)}
+                  onRestore={() => toggleSidebarMaximize(1)}
+                  className={`overflow-auto ${sidebarMaximized === 1 ? "flex-1" : ""}`}
+                  style={sidebarMaximized === null && !sidebarMinimized[1] ? { flex: sidebarWeights[1] } : {}}
+                >
+                  {isOrdersLoading ? (
+                    <div className="p-3 text-text-muted"><Loader2 className="w-4 h-4 animate-spin" /></div>
+                  ) : orders.length === 0 ? (
+                    <div className="p-3 text-data-xs text-text-muted italic">No open orders</div>
+                  ) : (
+                    <div className="space-y-2 p-2">
+                      {orders.map((order) => (
+                        <div key={order.id} className="flex items-center justify-between bg-bg-surface p-2 rounded border border-bg-border">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold">{order.symbol}</span>
+                            <span className="text-[10px] text-text-muted">{order.side} {order.type} {order.qty}</span>
+                          </div>
+                          <button onClick={() => handleCancelOrder(order.id)} className="text-bear hover:text-bear/80">
                             <X size={14} />
                           </button>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Panel>
+                      ))}
+                    </div>
+                  )}
+                </Panel>
+              )}
+
+              {sidebarMaximized === null && !sidebarMinimized[1] && !sidebarMinimized[2] && (
+                <Resizer onResize={(delta) => handleSidebarResize(1, delta)} />
+              )}
+
+              {/* Positions */}
+              {(sidebarMaximized === null || sidebarMaximized === 2) && (
+                <Panel 
+                  title="Positions" 
+                  isMinimized={sidebarMinimized[2]}
+                  isMaximized={sidebarMaximized === 2}
+                  onMinimize={() => toggleSidebarMinimize(2)}
+                  onMaximize={() => toggleSidebarMaximize(2)}
+                  onRestore={() => toggleSidebarMaximize(2)}
+                  className={`overflow-auto ${sidebarMaximized === 2 ? "flex-1" : ""}`}
+                  style={sidebarMaximized === null && !sidebarMinimized[2] ? { flex: sidebarWeights[2] } : {}}
+                >
+                  {isPositionsLoading ? (
+                    <div className="p-3 text-text-muted"><Loader2 className="w-4 h-4 animate-spin" /></div>
+                  ) : positions.length === 0 ? (
+                    <div className="p-3 text-data-xs text-text-muted italic">No open positions</div>
+                  ) : (
+                    <div className="space-y-2 p-2">
+                      {positions.map((pos) => (
+                        <div key={pos.symbol} className="flex items-center justify-between bg-bg-surface p-2 rounded border border-bg-border">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold">{pos.symbol}</span>
+                            <span className="text-[10px] text-text-muted">{pos.qty} shares @ {pos.avg_entry_price}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs font-mono ${pos.unrealized_pl >= 0 ? 'text-bull' : 'text-bear'}`}>
+                              {pos.unrealized_pl >= 0 ? '+' : ''}{formatCurrency(pos.unrealized_pl)}
+                            </span>
+                            <button onClick={() => handleClosePosition(pos.symbol)} className="text-bear hover:text-bear/80">
+                              <X size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Panel>
+              )}
             </div>
           )}
         </div>
       </div>
+      <LogViewer />
     </AppShell>
   );
 }

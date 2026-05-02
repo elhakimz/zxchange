@@ -11,6 +11,7 @@ interface MarketState {
   account: Account | null;
   connected: boolean;
   connectionError: string | null;
+  logs: string[];
   
   setSelectedSymbol: (symbol: string) => void;
   setSelectedTimeframe: (timeframe: Timeframe) => void;
@@ -21,6 +22,8 @@ interface MarketState {
   updateAccount: (account: Account) => void;
   setConnected: (connected: boolean) => void;
   setConnectionError: (error: string | null) => void;
+  addLog: (log: string) => void;
+  clearLogs: () => void;
 }
 
 export const EMPTY_BARS: Bar[] = [];
@@ -34,6 +37,7 @@ export const useMarketStore = create<MarketState>((set) => ({
   account: null,
   connected: false,
   connectionError: null,
+  logs: [],
 
   setSelectedSymbol: (symbol) => set({ selectedSymbol: symbol }),
   setSelectedTimeframe: (timeframe) => set({ selectedTimeframe: timeframe }),
@@ -69,4 +73,10 @@ export const useMarketStore = create<MarketState>((set) => ({
   setConnected: (connected) => set({ connected }),
   
   setConnectionError: (error) => set({ connectionError: error }),
+
+  addLog: (log) => set((state) => ({
+    logs: [log, ...state.logs].slice(0, 1000)
+  })),
+
+  clearLogs: () => set({ logs: [] }),
 }));

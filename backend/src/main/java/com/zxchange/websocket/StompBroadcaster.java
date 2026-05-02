@@ -42,4 +42,8 @@ public class StompBroadcaster {
     public void broadcastQuoteUpdate(String quoteJson) {
         messagingTemplate.convertAndSend("/topic/quotes/updates", quoteJson);
     }
+
+    public void broadcastLog(String message) {
+        messagingTemplate.convertAndSend("/topic/logs", message);
+    }
 }
