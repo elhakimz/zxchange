@@ -1,10 +1,11 @@
 import { create } from 'zustand';
-import type { Quote, Bar, Timeframe } from '../types/market.types';
+import type { Quote, Bar, Timeframe, ChartType } from '../types/market.types';
 import type { Account } from '../api/account.api';
 
 interface MarketState {
   selectedSymbol: string;
   selectedTimeframe: Timeframe;
+  selectedChartType: ChartType;
   quotes: Record<string, Quote>;
   bars: Record<string, Bar[]>;
   account: Account | null;
@@ -13,6 +14,7 @@ interface MarketState {
   
   setSelectedSymbol: (symbol: string) => void;
   setSelectedTimeframe: (timeframe: Timeframe) => void;
+  setSelectedChartType: (chartType: ChartType) => void;
   updateQuote: (quote: Quote) => void;
   setHistoricalBars: (symbol: string, timeframe: Timeframe, bars: Bar[]) => void;
   appendBar: (symbol: string, timeframe: Timeframe, bar: Bar) => void;
@@ -26,6 +28,7 @@ export const EMPTY_BARS: Bar[] = [];
 export const useMarketStore = create<MarketState>((set) => ({
   selectedSymbol: 'AAPL',
   selectedTimeframe: '1Min',
+  selectedChartType: 'candle',
   quotes: {},
   bars: {},
   account: null,
@@ -34,6 +37,7 @@ export const useMarketStore = create<MarketState>((set) => ({
 
   setSelectedSymbol: (symbol) => set({ selectedSymbol: symbol }),
   setSelectedTimeframe: (timeframe) => set({ selectedTimeframe: timeframe }),
+  setSelectedChartType: (chartType) => set({ selectedChartType: chartType }),
   
   updateQuote: (quote) => set((state) => ({
     quotes: { ...state.quotes, [quote.symbol]: quote }
