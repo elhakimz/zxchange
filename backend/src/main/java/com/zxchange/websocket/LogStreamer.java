@@ -40,6 +40,11 @@ public class LogStreamer {
 
         @Override
         protected void append(ILoggingEvent event) {
+            // Filter by level first
+            if (event.getLevel().toInt() < Level.INFO_INT) {
+                return;
+            }
+
             // Avoid infinite loops if STOMP itself logs something
             if (event.getLoggerName().contains("org.springframework.messaging") || 
                 event.getLoggerName().contains("com.zxchange.websocket.StompBroadcaster")) {
