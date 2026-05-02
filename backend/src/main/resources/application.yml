@@ -1,0 +1,19 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:sqlite:./zxchange.db
+    driver-class-name: org.sqlite.JDBC
+  jpa:
+    database-platform: org.hibernate.community.dialect.SQLiteDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+zxchange:
+  alpaca:
+    base-url: https://api.alpaca.markets
+    paper-base-url: https://paper-api.alpaca.markets
+    data-ws-url: wss://stream.data.alpaca.markets/v2/iex
+    trading-ws-url: wss://paper-api.alpaca.markets/stream

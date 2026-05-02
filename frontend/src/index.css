@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* === BACKGROUNDS === */
+  --bg-void:        #05080f;
+  --bg-base:        #0a0e1a;
+  --bg-surface:     #0f1629;
+  --bg-elevated:    #151d35;
+  --bg-overlay:     #1a2440;
+  --bg-border:      #1e2d4a;
+
+  /* === TEXT === */
+  --text-primary:   #e8edf5;
+  --text-secondary: #8a9bb8;
+  --text-muted:     #4a5a78;
+  --text-accent:    #4fc3f7;
+
+  /* === SIGNAL COLORS === */
+  --signal-bull:        #00d4a8;
+  --signal-bull-dim:    #00896c;
+  --signal-bull-bg:     #002a22;
+
+  --signal-bear:        #ff4757;
+  --signal-bear-dim:    #c0303e;
+  --signal-bear-bg:     #2a0008;
+
+  --signal-neutral:     #8a9bb8;
+  --signal-warn:        #ffc107;
+  --signal-warn-bg:     #2a1f00;
+
+  /* === BRAND / ACCENT === */
+  --brand-primary:      #4fc3f7;
+  --brand-glow:         #4fc3f7aa;
+  --brand-secondary:    #7c5cbf;
+
+  /* === CHART === */
+  --chart-bg:           #0a0e1a;
+  --chart-grid:         #131c30;
+  --chart-candle-bull:  #00d4a8;
+  --chart-candle-bear:  #ff4757;
+  --chart-volume-bull:  #00d4a840;
+  --chart-volume-bear:  #ff475740;
+  --chart-crosshair:    #4fc3f7;
+
+  /* === TYPOGRAPHY === */
+  --font-ui:      'Inter', 'SF Pro Display', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --font-data:    'JetBrains Mono', monospace;
+}
+
+@layer base {
+  body {
+    @apply bg-bg-base text-text-primary font-ui antialiased overflow-hidden;
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--bg-void);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--bg-border);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--bg-overlay);
+  }
+}

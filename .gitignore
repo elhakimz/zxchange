@@ -1,0 +1,21 @@
+# Secrets
+.env
+
+# Build Artifacts
+target/
+node_modules/
+dist/
+.playwright-artifacts-*/
+
+# Database
+backend/zxchange.db
+
+# Requested exclusions
+tech_plan/
+alpaca-docs/
+
+# IDE / System
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
