@@ -15,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -95,5 +96,38 @@ class OrderServiceTest {
         assertEquals("rejected", response.getStatus());
         assertEquals(100.0, account.getCash()); // Cash should not change
         verify(positionRepository, never()).save(any());
+    }
+
+    @Test
+    void testMatchOrders_LimitFill() throws IOException {
+        // Arrange
+        OrderHistoryEntity order = new OrderHistoryEntity();
+        order.setBrokerOrderId("mock-limit-123");
+        order.setSymbol("AAPL");
+        order.setSide("buy");
+        order.setType("limit");
+        order.setLimitPrice(150.0);
+        order.setQty(10.0);
+        order.setStatus("accepted");
+
+        MockAccountEntity account = new MockAccountEntity();
+        account.setCash(100000.0);
+
+        QuoteDto quote = new QuoteDto("AAPL", 149.0, 0, null, 149.0, 0, null, "123456789");
+
+        when(orderRepository.findByStatus("accepted")).thenReturn(List.of(order));
+        when(finnhubService.getQuote("AAPL")).thenReturn(quote);
+        when(accountRepository.findById("PRIMARY")).thenReturn(Optional.of(account));
+        when(positionRepository.findBySymbol("AAPL")).thenReturn(Optional.empty());
+
+        // Act
+        orderService.matchOrders();
+
+        // Assert
+        assertEquals("filled", order.getStatus());
+        assertEquals(149.0, order.getFilledAvgPrice());
+        assertEquals(98510.0, account.getCash()); // 100000 - (149 * 10)
+        verify(orderRepository).save(order);
+        verify(stompBroadcaster).broadcastOrderUpdate(any());
     }
 }

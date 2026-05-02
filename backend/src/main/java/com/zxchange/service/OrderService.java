@@ -12,11 +12,14 @@ import com.zxchange.repository.OrderHistoryRepository;
 import com.zxchange.websocket.StompBroadcaster;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -28,18 +31,55 @@ public class OrderService {
     private final MockAccountRepository accountRepository;
     private final MockPositionRepository positionRepository;
     private final FinnhubService finnhubService;
-    private final StompBroadcaster stompBroadcaster;
+    private final com.zxchange.websocket.StompBroadcaster stompBroadcaster;
 
     public OrderService(OrderHistoryRepository orderRepository,
                         MockAccountRepository accountRepository,
                         MockPositionRepository positionRepository,
                         FinnhubService finnhubService,
-                        StompBroadcaster stompBroadcaster) {
+                        com.zxchange.websocket.StompBroadcaster stompBroadcaster) {
         this.orderRepository = orderRepository;
         this.accountRepository = accountRepository;
         this.positionRepository = positionRepository;
         this.finnhubService = finnhubService;
         this.stompBroadcaster = stompBroadcaster;
+    }
+
+    @Scheduled(fixedRate = 5000)
+    @Transactional
+    public void matchOrders() {
+        List<OrderHistoryEntity> openOrders = orderRepository.findByStatus("accepted");
+        if (openOrders.isEmpty()) return;
+
+        Map<String, Double> prices = new HashMap<>();
+
+        for (OrderHistoryEntity order : openOrders) {
+            try {
+                String symbol = order.getSymbol();
+                if (!prices.containsKey(symbol)) {
+                    prices.put(symbol, finnhubService.getQuote(symbol).bidPrice());
+                }
+
+                double currentPrice = prices.get(symbol);
+                boolean shouldFill = false;
+
+                if ("market".equalsIgnoreCase(order.getType())) {
+                    shouldFill = true;
+                } else if ("limit".equalsIgnoreCase(order.getType())) {
+                    if ("buy".equalsIgnoreCase(order.getSide()) && currentPrice <= order.getLimitPrice()) shouldFill = true;
+                    if ("sell".equalsIgnoreCase(order.getSide()) && currentPrice >= order.getLimitPrice()) shouldFill = true;
+                } else if ("stop".equalsIgnoreCase(order.getType())) {
+                    if ("buy".equalsIgnoreCase(order.getSide()) && currentPrice >= order.getStopPrice()) shouldFill = true;
+                    if ("sell".equalsIgnoreCase(order.getSide()) && currentPrice <= order.getStopPrice()) shouldFill = true;
+                }
+
+                if (shouldFill) {
+                    executeMockOrder(order, currentPrice);
+                }
+            } catch (Exception e) {
+                logger.error("Error matching order {}: {}", order.getBrokerOrderId(), e.getMessage());
+            }
+        }
     }
 
     @Transactional
@@ -61,17 +101,26 @@ public class OrderService {
         
         entity = orderRepository.save(entity);
 
+        // Immediate fill attempt for market orders
         if ("market".equalsIgnoreCase(request.type())) {
-            executeMockOrder(entity);
+            try {
+                executeMockOrder(entity, null);
+            } catch (Exception e) {
+                logger.warn("Immediate fill failed for market order, will retry in next tick: {}", e.getMessage());
+            }
         }
 
         return mapToDto(entity);
     }
 
-    private void executeMockOrder(OrderHistoryEntity order) throws IOException {
-        QuoteDto quote = finnhubService.getQuote(order.getSymbol());
-        double fillPrice = quote.bidPrice(); 
-        
+    private void executeMockOrder(OrderHistoryEntity order, Double forcedPrice) throws IOException {
+        double fillPrice;
+        if (forcedPrice != null) {
+            fillPrice = forcedPrice;
+        } else {
+            QuoteDto quote = finnhubService.getQuote(order.getSymbol());
+            fillPrice = quote.bidPrice(); 
+        }
         MockAccountEntity account = accountRepository.findById("PRIMARY")
                 .orElseGet(() -> accountRepository.save(new MockAccountEntity()));
 
